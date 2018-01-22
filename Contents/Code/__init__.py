@@ -50,12 +50,13 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
     season_num_list = []
     for season_num in media.seasons:
         season_num_list.append(season_num)
-    season_num_list.sort(key=int)
-    Log.Debug(season_num_list)
+    season_num_list.sort(key=int, reverse=True)
+
     #Get metadata
     series_json_data = JSON.ObjectFromURL(url=DAUM_TV_SERIES % (metadata.id, programIds))
 
     #Set Tv Show basic metadata
+    html = HTML.ElementFromURL(DAUM_TV_DETAIL % metadata.id)
     tvshow = series_json_data['programList'][0]
     metadata.genres.clear()
     metadata.countries.clear()
@@ -72,7 +73,6 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
         poster = HTTP.Request(poster_url)
         try: metadata.posters[poster_url] = Proxy.Media(poster)
         except: pass
-    html = HTML.ElementFromURL(DAUM_TV_DETAIL % metadata.id)
     metadata.rating = float(html.xpath('//div[@class="subject_movie"]/div/em')[0].text)
 
     #Set Season metadata - poster, summary
@@ -163,10 +163,12 @@ class DaumMovieTVSeriesAgent(Agent.TV_Shows):
             for idx, series in enumerate(json_data['programList'][0]['series'][0]['seriesPrograms'], start=1):
                 if str(idx) in season_num_list and series['programId'] not in programId :
                     programId.append(series['programId'])
+        programId = list(reversed(programId))
+        Log.Debug(programId)
         programIds = ','.join(programId)
         if not programIds:
             programIds = metadata.id
         else :
-            metadata.id = programId[0]
+            metadata.id = programId[-1]
         Log.Info("in update ID = %s" % metadata.id)
         updateDaumMovieTVSeries(metadata, media, programIds)
