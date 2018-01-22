@@ -65,7 +65,8 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
     metadata.original_title = tvshow['nameOrg']
     metadata.genres.add(tvshow['genre'])
     metadata.studio = tvshow['channels'][0]['name']
-    metadata.countries.add(tvshow['countries'][0])
+    #if len(tvshow['countries'][0]):
+    #    metadata.countries.add(tvshow['countries'][0])
     metadata.originally_available_at = Datetime.ParseDate(tvshow['channels'][0]['startDate']).date()
     metadata.summary = tvshow['introduceDescription'].replace('\r\n','\n').strip()
     poster_url = tvshow['mainImageUrl']
@@ -155,8 +156,10 @@ class DaumMovieTVSeriesAgent(Agent.TV_Shows):
     def update(self, metadata, media, lang):
         season_num_list = []
         programId = []
+        Log.Debug(media.seasons)
         for season_num in media.seasons:
             season_num_list.append(season_num)
+        Log.Debug(season_num_list)
         season_num_list.sort(key=int)
         json_data = JSON.ObjectFromURL(url=DAUM_TV_SERIES % (metadata.id, metadata.id))
         if len(json_data['programList'][0]['series']):
