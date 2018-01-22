@@ -43,7 +43,7 @@ def searchDaumMovieTVSeries(results, media, lang):
             score = 10
         Log.Debug('ID=%s, media_name=%s, title=%s, year=%s, score=%d' %(id, media_name, title, year, score))
         results.Append(MetadataSearchResult(id=id, name=title, year=year, score=score, lang=lang))
-        
+
 def updateDaumMovieTVSeries(metadata, media, programIds):
     poster_url = None
     actor_data = OrderedDict()
@@ -89,7 +89,7 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
         if match:
             episode_json_data = JSON.ObjectFromString(match.group(1), max_size = JSON_MAX_SIZE)
             for episode_data in episode_json_data:
-                episode_num = episode_data['name']        
+                episode_num = episode_data['name']
                 if not episode_num: continue
                 episode = metadata.seasons[season_num].episodes[int(episode_num)]
                 episode.title = episode_data['title']
@@ -112,19 +112,20 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
                     if crew_info['type'] == u'제작':
                         episode_producer = episode.producers.new()
                         episode_producer.name = crew_info['name']
-                        episode_producer.photo = crew_info['mainImageUrl']  
+                        episode_producer.photo = crew_info['mainImageUrl']
                     if crew_info['type'] in  [u'극본', u'각본']:
                         episode_writer = episode.writers.new()
                         episode_writer.name = crew_info['name']
-                        episode_writer.photo = crew_info['mainImageUrl']                              
+                        episode_writer.photo = crew_info['mainImageUrl']
         #Get Actors Info
         for actor_info in season_json['castings']:
-            actor_data[actor_info['homoId']] = {}
-            actor_data[actor_info['homoId']]['ordering'] = actor_info['ordering']
-            actor_data[actor_info['homoId']]['name'] = actor_info['name']
-            actor_data[actor_info['homoId']]['role'] = actor_info['characterName'] if actor_info['characterName'] else actor_info['type']
-            actor_data[actor_info['homoId']]['photo'] = actor_info['mainImageUrl'] if actor_info['mainImageUrl'] else actor_info['characterMainImageUrl']
-            
+            if actor_info['homoId'] not in actor_data:
+                actor_data[actor_info['homoId']] = {}
+                actor_data[actor_info['homoId']]['ordering'] = actor_info['ordering']
+                actor_data[actor_info['homoId']]['name'] = actor_info['name']
+                actor_data[actor_info['homoId']]['role'] = actor_info['characterName'] if actor_info['characterName'] else actor_info['type']
+                actor_data[actor_info['homoId']]['photo'] = actor_info['mainImageUrl'] if actor_info['mainImageUrl'] else actor_info['characterMainImageUrl']
+
     #Set Acotrs Info
     i = 1;
     for k, actor in actor_data.items():
