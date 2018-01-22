@@ -47,7 +47,11 @@ def searchDaumMovieTVSeries(results, media, lang):
 def updateDaumMovieTVSeries(metadata, media, programIds):
     poster_url = None
     actor_data = OrderedDict()
-
+    season_num_list = []
+    for season_num in media.seasons:
+        season_num_list.append(season_num)
+    season_num_list.sort(key=int)
+    Log.Debug(season_num_list)
     #Get metadata
     series_json_data = JSON.ObjectFromURL(url=DAUM_TV_SERIES % (metadata.id, programIds))
 
@@ -73,7 +77,7 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
 
     #Set Season metadata - poster, summary
     #Season summary not working
-    for season_num, season_json in enumerate(series_json_data['programList'], start=1):
+    for season_num, season_json in zip(season_num_list, series_json_data['programList']):
         programId= season_json['programId']
         season = metadata.seasons[season_num]
         season.summary = season_json['introduceDescription'].replace('\r\n','\n').strip()
@@ -149,14 +153,17 @@ class DaumMovieTVSeriesAgent(Agent.TV_Shows):
         return searchDaumMovieTVSeries(results, media, lang)
 
     def update(self, metadata, media, lang):
+        season_num_list = []
         programId = []
+        for season_num in media.seasons:
+            season_num_list.append(season_num)
+        season_num_list.sort(key=int)
         json_data = JSON.ObjectFromURL(url=DAUM_TV_SERIES % (metadata.id, metadata.id))
         if len(json_data['programList'][0]['series']):
-            for series in json_data['programList'][0]['series'][0]['seriesPrograms']:
-                if series['programId'] not in programId :
+            for idx, series in enumerate(json_data['programList'][0]['series'][0]['seriesPrograms'], start=1):
+                if str(idx) in season_num_list and series['programId'] not in programId :
                     programId.append(series['programId'])
-        season_num = len(media.seasons)
-        programIds = ','.join(programId[:season_num])
+        programIds = ','.join(programId)
         if not programIds:
             programIds = metadata.id
         else :
