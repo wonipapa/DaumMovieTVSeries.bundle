@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Daum Movie
+# Daum Movie TV Series
 
 import urllib, unicodedata
 from collections import OrderedDict
@@ -46,7 +46,6 @@ def searchDaumMovieTVSeries(results, media, lang):
         
 def updateDaumMovieTVSeries(metadata, media, programIds):
     poster_url = None
-    season_data = OrderedDict()
     actor_data = OrderedDict()
 
     #Get metadata
@@ -94,7 +93,7 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
                 if not episode_num: continue
                 episode = metadata.seasons[season_num].episodes[int(episode_num)]
                 episode.title = episode_data['title']
-                summary = episode_data['introduceDescription'].replace('\r\n \r\n', '!|').replace('\r\n', ' ').replace('<br>', '\n').strip()
+                summary = episode_data['introduceDescription'].replace('\r\n', '\n').replace('<br>', '\n').replace('<BR>', '\n').strip()
                 episode.summary = '\n'.join([line.strip() for line in summary.splitlines()])
                 episode.summary = episode.summary.replace('!|', '\n')
                 if episode_data['channels'][0]['broadcastDate']:
