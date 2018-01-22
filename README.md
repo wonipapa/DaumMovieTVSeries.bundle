@@ -1,6 +1,3 @@
-# DaumMovieTVSeries.bundle
-Plex Metadata Agent for daum movie tv series
-
 [다음영화](http://movie.daum.net)에서 시리즈 드라마 정보를 가져오는 Plex용 Metadata Agent입니다
 
 설정
@@ -13,7 +10,7 @@ Plex Metadata Agent for daum movie tv series
 
 삼시세끼를 예를 들면 다음과 같이 파일이름과 폴더명을 정하면 된다.
 
-삼시세끼/삼시세끼 정선편 시즌 1/삼시세끼 정선편 시즌 1 S01E01.mp4
-삼시세끼/삼시세끼 어촌편 시즌 1/삼시세끼 어촌편 시즌 1 S02E01.mp4
-삼시세끼/삼시세끼 정선편 시즌 2/삼시세끼 정선편 시즌 2 S03E01.mp4
+삼시세끼/삼시세끼 정선편 시즌 1/삼시세끼 정선편 시즌 1 S01E01.mp4 
+삼시세끼/삼시세끼 어촌편 시즌 1/삼시세끼 어촌편 시즌 1 S02E01.mp4 
+삼시세끼/삼시세끼 정선편 시즌 2/삼시세끼 정선편 시즌 2 S03E01.mp4 
 
