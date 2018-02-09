@@ -15,7 +15,7 @@ DAUM_TV_DETAIL     = "http://movie.daum.net/tv/main?tvProgramId=%s"
 #DAUM_TV_PHOTO      = "http://movie.daum.net/data/movie/photo/tv/list.json?pageNo=1&pageSize=100&id=%s"
 DAUM_TV_EPISODE    = "http://movie.daum.net/tv/episode?tvProgramId=%s"
 DAUM_TV_SERIES     = "http://movie.daum.net/tv/series_list.json?tvProgramId=%s&programIds=%s"
-
+#http://movie.daum.net/tv/program.json?programIds=79584
 JSON_MAX_SIZE      = 10 * 1024 * 1024
 
 DAUM_CR_TO_MPAA_CR = {
@@ -190,7 +190,7 @@ def updateDaumMovie(metadata):
             if 'photo' in writer:
                 meta_writer.photo = writer['photo']
 
-    #Set Crew Acotrs Info 
+    #Set Acotrs Info 
     if roles:
         metadata.roles.clear()
         for role in roles:
@@ -309,6 +309,7 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
                 episode.summary = episode.summary.replace('!|', '\n')
                 if episode_data['channels'][0]['broadcastDate']:
                     episode.originally_available_at = Datetime.ParseDate(episode_data['channels'][0]['broadcastDate'], '%Y%m%d').date()
+                    metadata.originally_available_at = episode.originally_available_at
                 try: episode.rating = float(episode_data['rate'])
                 except: pass
                 episode.directors.clear()
@@ -333,16 +334,16 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
             if actor_info['homoId'] not in actor_data:
                 actor_data[actor_info['homoId']] = {}
                 actor_data[actor_info['homoId']]['ordering'] = actor_info['ordering']
-                actor_data[actor_info['homoId']]['name'] = actor_info['name']
-                actor_data[actor_info['homoId']]['role'] = actor_info['characterName'] if actor_info['characterName'] else actor_info['type']
-                actor_data[actor_info['homoId']]['photo'] = actor_info['mainImageUrl'] if actor_info['mainImageUrl'] else actor_info['characterMainImageUrl']
+                actor_data[actor_info['homoId']]['name'] = actor_info['name'].strip()
+                actor_data[actor_info['homoId']]['role'] = actor_info['characterName'] if actor_info['characterName'].strip() else actor_info['type'].strip()
+                actor_data[actor_info['homoId']]['photo'] = actor_info['mainImageUrl'] if actor_info['mainImageUrl'].strip() else actor_info['characterMainImageUrl'].strip()
 
     #Set Acotrs Info
     i = 0;
     for k, actor in actor_data.items():
         meta_role = metadata.roles.new()
         meta_role.name = actor['name']
-        if actor['role'] in [u'출연', u'특별출연']:
+        if actor['role'] in [u'출연', u'특별출연', u'진행']:
             meta_role.role = actor['role'] + ' '*i
             i += 1
         else:
