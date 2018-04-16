@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Daum Movie TV Series
 
-import urllib, unicodedata
+import urllib, unicodedata, json, re
 from collections import OrderedDict
 
 DAUM_MOVIE_SRCH   = "http://movie.daum.net/data/movie/search/v2/movie.json?size=20&start=1&searchText=%s"
@@ -42,7 +42,7 @@ DAUM_CR_TO_MPAA_CR = {
 }
 
 def Start():
-    HTTP.CacheTime = CACHE_1HOUR * 12
+    HTTP.CacheTime = CACHE_1HOUR * 0
     HTTP.Headers['Accept'] = 'text/html, application/json'
 
 ####################################################################################################
@@ -238,7 +238,6 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
 
     #Get metadata
     series_json_data = JSON.ObjectFromURL(url=DAUM_TV_SERIES % (metadata.id, programIds))
-
     #Set Tv Show basic metadata
     metadata.genres.clear()
     metadata.countries.clear()
@@ -296,9 +295,10 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
 
         #Set episode metadata
         episodepage = HTTP.Request(DAUM_TV_EPISODE % programId)
-        match = Regex('MoreView\.init\(\d+, (.*?)\);', Regex.DOTALL).search(episodepage.content)
+        match = Regex('MoreView\.init\(\d+, (.*?)}]\);', Regex.DOTALL).search(episodepage.content)
         if match:
-            episode_json_data = JSON.ObjectFromString(match.group(1), max_size = JSON_MAX_SIZE)
+            json_data = match.group(1) + '}]'
+            episode_json_data = JSON.ObjectFromString(json_data, max_size = JSON_MAX_SIZE)
             for episode_data in episode_json_data:
                 episode_num = episode_data['name']
                 if not episode_num: continue
@@ -309,7 +309,8 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
                 episode.summary = episode.summary.replace('!|', '\n')
                 if episode_data['channels'][0]['broadcastDate']:
                     episode.originally_available_at = Datetime.ParseDate(episode_data['channels'][0]['broadcastDate'], '%Y%m%d').date()
-                    metadata.originally_available_at = episode.originally_available_at
+		elif episode_data['channels'][1]['broadcastDate']:
+                    episode.originally_available_at = Datetime.ParseDate(episode_data['channels'][1]['broadcastDate'], '%Y%m%d').date()
                 try: episode.rating = float(episode_data['rate'])
                 except: pass
                 episode.directors.clear()
@@ -343,7 +344,7 @@ def updateDaumMovieTVSeries(metadata, media, programIds):
     for k, actor in actor_data.items():
         meta_role = metadata.roles.new()
         meta_role.name = actor['name']
-        if actor['role'] in [u'출연', u'특별출연', u'진행']:
+        if actor['role'] in [u'출연', u'특별출연', u'진행', u'내레이션']:
             meta_role.role = actor['role'] + ' '*i
             i += 1
         else:
@@ -385,6 +386,8 @@ class DaumMovieTVSeriesAgent(Agent.TV_Shows):
                 if str(idx) in season_num_list and series['programId'] not in programId :
                     programId.append(series['programId'])
         programIds = ','.join(programId)
+        if ('59105' or '60993') in programId:
+            programIds = ','.join(programIds.split(',')[::-1])
         if not programIds:
             programIds = metadata.id
         else :
