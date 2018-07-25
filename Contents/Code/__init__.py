@@ -9,12 +9,12 @@ DAUM_MOVIE_DETAIL = "http://movie.daum.net/moviedb/main?movieId=%s"
 DAUM_MOVIE_CAST   = "http://movie.daum.net/data/movie/movie_info/cast_crew.json?pageNo=1&pageSize=100&movieId=%s"
 DAUM_MOVIE_PHOTO  = "http://movie.daum.net/data/movie/photo/movie/list.json?pageNo=1&pageSize=100&id=%s"
 
-DAUM_TV_SRCH   = "http://movie.daum.net/data/movie/search/v2/tv.json?size=20&start=1&searchText=%s"
-DAUM_TV_DETAIL     = "http://movie.daum.net/tv/main?tvProgramId=%s"
-#DAUM_TV_CAST       = "http://movie.daum.net/tv/crew?tvProgramId=%s"
-#DAUM_TV_PHOTO      = "http://movie.daum.net/data/movie/photo/tv/list.json?pageNo=1&pageSize=100&id=%s"
-DAUM_TV_EPISODE    = "http://movie.daum.net/tv/episode?tvProgramId=%s"
-DAUM_TV_SERIES     = "http://movie.daum.net/tv/series_list.json?tvProgramId=%s&programIds=%s"
+DAUM_TV_SRCH      = "https://search.daum.net/search?w=tot&q=%s"
+DAUM_TV_DETAIL    = "http://movie.daum.net/tv/main?tvProgramId=%s"
+#DAUM_TV_CAST     = "http://movie.daum.net/tv/crew?tvProgramId=%s"
+#DAUM_TV_PHOTO    = "http://movie.daum.net/data/movie/photo/tv/list.json?pageNo=1&pageSize=100&id=%s"
+DAUM_TV_EPISODE   = "http://movie.daum.net/tv/episode?tvProgramId=%s"
+DAUM_TV_SERIES    = "http://movie.daum.net/tv/series_list.json?tvProgramId=%s&programIds=%s"
 #http://movie.daum.net/tv/program.json?programIds=79584
 JSON_MAX_SIZE      = 10 * 1024 * 1024
 
@@ -66,15 +66,52 @@ def searchDaumMovie(results, media, lang):
         results.Append(MetadataSearchResult(id=id, name=title, year=year, score=score, lang=lang))
 
 def searchDaumMovieTVSeries(results, media, lang):
+    items = []
     media_name = media.show
     media_name = unicodedata.normalize('NFKC', unicode(media_name)).strip()
+
     Log.Debug("search: %s %s" %(media_name, media.year))
-    data = JSON.ObjectFromURL(url=DAUM_TV_SRCH % (urllib.quote(media_name.encode('utf8'))))
-    items = data['data']
+#    data = JSON.ObjectFromURL(url=DAUM_TV_SRCH % (urllib.quote(media_name.encode('utf8'))))
+
+#검색결과
+    html = HTML.ElementFromURL(url=DAUM_TV_SRCH % (urllib.quote(media_name.encode('utf8'))))
+    title = html.xpath('//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"]')[0].text.strip()
+    id     = html.xpath('substring-before(substring-after(//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"]/@href, "irk="),"&")').strip()
+    year = html.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text.strip()
+    match = Regex('(\d{4})\.\d*\.\d*~').search(year)
+    if match:
+        try: year = match.group(1)
+        except: year = ''
+    items.append({"title":title, "id":id, "year":year})
+
+#시리즈
+    seriesNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li/a[@class="f_link_b"])')
+    for i in range(1, int(seriesNumber)+1):
+        title = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/a[@class="f_link_b"]')[0].text.strip()
+        id     = html.xpath('substring-before(substring-after(//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/a[@class="f_link_b"]/@href, "irk="),"&")').strip()
+        year = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/span')[0].text.strip()
+        match = Regex('(\d{4})\.').search(year)
+        if match:
+            try: year = match.group(1)
+            except: year = ''
+        items.append({"title":title, "id":id, "year":year})       
+
+#동명 콘텐트
+    sameNameNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//div[@class="coll_etc "]//dd/a[@class="f_link"])')
+    for i in range(1, int(sameNameNumber)+1):
+        title = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@class="coll_etc "]//dd/a[' + str(i) + '][@class="f_link"]')[0].text.strip()
+        id     = html.xpath('substring-before(substring-after(//div[@id="tvpColl"]//div[@id="tab_content"]//div[@class="coll_etc "]//dd/a[' + str(i) + '][@class="f_link"]/@href, "irk="),"&")').strip()
+        year = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@class="coll_etc "]//dd/span[@class="f_eb"][' + str(i) + ']')[0].text.strip()
+        match = Regex('(\d{4})\)').search(year)
+        if match:
+            try: year = match.group(1)
+            except: year = ''
+        items.append({"title":title, "id":id, "year":year})
+
     for item in items:
-        year = str(item['prodYear'])
-        id = str(item['tvProgramId'])
-        title = String.DecodeHTMLEntities(String.StripTags(item['titleKo'])).strip()
+        year = str(item['year'])
+        id = str(item['id'])
+        title = item['title']
         if year == media.year:
             score = 95
         elif len(items) == 1:
@@ -83,7 +120,7 @@ def searchDaumMovieTVSeries(results, media, lang):
             score = 10
         Log.Debug('ID=%s, media_name=%s, title=%s, year=%s, score=%d' %(id, media_name, title, year, score))
         results.Append(MetadataSearchResult(id=id, name=title, year=year, score=score, lang=lang))
-
+	
 def updateDaumMovie(metadata):
     poster_url = None
     #Set Movie basic metadata
