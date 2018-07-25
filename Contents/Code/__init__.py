@@ -97,13 +97,11 @@ def searchDaumMovieTVSeries(results, media, lang):
         items.append({"title":title, "id":id, "year":year})       
 
 #동명 콘텐츠
-    sameNameNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//div[@class="coll_etc "]//dd/a[@class="f_link"])')
-    for i in range(1, int(sameNameNumber)+1):
-            sameNameNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[@class="f_link"])')
+    sameNameNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[@class="f_link"])')
     for i in range(1, int(sameNameNumber)+1):
         title = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[' + str(i) + '][@class="f_link"]')[0].text.strip()
-        id    = html.xpath('substring-before(substring-after(//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[' + str(i) + '][@class="f_link"]/@href, "irk="),"&")').strip()
-        year  = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/span[@class="f_eb"][' + str(i) + ']')[0].text.strip()
+        id     = html.xpath('substring-before(substring-after(//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[' + str(i) + '][@class="f_link"]/@href, "irk="),"&")').strip()
+        year = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/span[@class="f_eb"][' + str(i) + ']')[0].text.strip()
         match = Regex('(\d{4})\)').search(year)
         if match:
             try: year = match.group(1)
