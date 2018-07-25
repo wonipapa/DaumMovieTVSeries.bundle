@@ -96,7 +96,7 @@ def searchDaumMovieTVSeries(results, media, lang):
             except: year = ''
         items.append({"title":title, "id":id, "year":year})       
 
-#동명 콘텐트
+#동명 콘텐츠
     sameNameNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//div[@class="coll_etc "]//dd/a[@class="f_link"])')
     for i in range(1, int(sameNameNumber)+1):
             sameNameNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[@class="f_link"])')
