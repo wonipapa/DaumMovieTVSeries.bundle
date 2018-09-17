@@ -1,11 +1,3 @@
-임시 패치입니다.  ToDo List는 몇일 지나야 고칠 수 있을 것 같습니다. 
-# ToDo List
-시리즈 기능    
-회차정보  
-출연진 정보  
-제작진 정보  
-JSON 기능  
-
 [다음영화](http://movie.daum.net)에서 영화, TV 드라마, TV 드라마 시리즈 정보를 가져오는 Plex용 Metadata Agent입니다
 
 
