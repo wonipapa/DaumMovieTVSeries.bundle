@@ -316,7 +316,6 @@ def updateDaumMovieTVSeries(metadata, media):
                     except: pass
                     series_data.append({"airdate":airdate, "q": qs['q'][0].decode('utf8'), "irk": qs['irk'][0]})
             tvshowinfo = sorted(series_data, key=lambda k: k['airdate'], reverse=True)[0]
-            
             title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodes = GetSeason(tvshowinfo)
             metadata.genres.clear()
             metadata.countries.clear()
@@ -381,7 +380,7 @@ def updateDaumMovieTVSeries(metadata, media):
                         episode_num = int(episodeinfo['name'])
                     elif episodeinfo['date'] in media.seasons[season_num].episodes:
                         episode_num = episodeinfo['date']
-                    
+                    #else continue
                     if episode_num:
                         Log.Info('season_num = %s  episode_num = %s' %(season_num, episode_num))
                         episode_date, episode_title, episode_summary = GetEpisode(episodeinfo)
@@ -475,9 +474,9 @@ def GetSeason(info):
         try:episode_date = Datetime.ParseDate(episodeinfo.attrib['data-clip']).date().strftime('%Y-%m-%d')
         except:episode_date = ''
         episode_qs = urlparse.parse_qs(episodeinfo.xpath('./a/@href')[0])
-        episode_name = episodeinfo.xpath('./a/span[@class="txt_episode"]')[0].text.strip().replace(u'회','').strip()
+        try:episode_name = episodeinfo.xpath('./a/span[@class="txt_episode"]')[0].text.strip().replace(u'회','').strip()
+        except:episode_name = ''
         episodeinfos.append({"name": episode_name, "date":episode_date, "q":episode_qs['q'][0], "irk":episode_qs['irk'][0]})
-
     return title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodeinfos
 
 def GetEpisode(info):
