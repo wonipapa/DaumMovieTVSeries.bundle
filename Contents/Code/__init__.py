@@ -429,7 +429,8 @@ def GetSeason(info):
     html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(info['q'].encode('utf8')), info['irk']))
     title = html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong')[0].text.strip()
     poster_url =  urlparse.parse_qs(urlparse.urlparse(html.xpath('//div[@id="tvpColl"]//div[@class="info_cont"]/div[@class="wrap_thumb"]//img/@src')[0].strip()).query)['fname'][0]
-    match = Regex('(\d{4}\.\d{1,2}\.\d{1,2})~(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[3]')[0].text.strip())
+    airdate = None
+    match = Regex('(\d{4}\.\d{1,2}\.\d{1,2})~(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text.strip())
     if match:
         try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date()
         except: pass
