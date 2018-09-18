@@ -317,7 +317,8 @@ def updateDaumMovieTVSeries(metadata, media):
                         except: pass
                         series_data.append({"airdate":airdate, "q": qs['q'][0].decode('utf8'), "irk": qs['irk'][0]})
                 except:pass
-            tvshowinfo = sorted(series_data, key=lambda k: k['airdate'], reverse=True)[0]
+            series_data = sorted(series_data, key=lambda k: k['airdate'])
+            tvshowinfo = series_data[-1]
             title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodes = GetSeason(tvshowinfo)
             metadata.genres.clear()
             metadata.countries.clear()
@@ -348,7 +349,12 @@ def updateDaumMovieTVSeries(metadata, media):
             # 다음 메타의 경우 시즌이 반영안되는 경우가 있다 이때 포스트는 tvshow 포스터 사용
             if '0' in season_num_list:
                season_num_list.remove('0')
-            for season_num, season_info in map(None, season_num_list,  sorted(series_data, key=lambda k: k['airdate'])): 
+            for season_num in season_num_list:
+                try:
+                    season_info = series_data[int(season_num)-1]
+                except:
+                    season_info = None
+            #for season_num, season_info in map(None, season_num_list,  sorted(series_data, key=lambda k: k['airdate'])):
                 if season_info is None:
                     if len(series_data) == 1:
                         season = metadata.seasons[season_num]
