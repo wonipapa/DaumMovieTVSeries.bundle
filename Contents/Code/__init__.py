@@ -100,19 +100,20 @@ def searchDaumMovieTVSeries(results, media, lang):
             except: year = ''
         items.append({"title":title, "id":id, "year":year})
     except:pass
-
 #시리즈
     seriesNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li/a[@class="f_link_b"])')
     for i in range(1, int(seriesNumber)+1):
+        year = ''
         title = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/a[@class="f_link_b"]')[0].text.strip()
         id    = urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/a[@class="f_link_b"]/@href')[0].strip())['irk'][0].strip()
-        year  = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/span')[0].text.strip()
-        match = Regex('(\d{4})\.').search(year)
-        if match:
-            try: year = match.group(1)
-            except: year = ''
+        try:
+            year  = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/span')[0].text.strip()
+            match = Regex('(\d{4})\.').search(year)
+            if match:
+                try: year = match.group(1)
+                except: year = ''
+        except: pass
         items.append({"title":title, "id":id, "year":year})
-
 #동명 콘텐츠
     #sameNameNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[@class="f_link"])')
     sameNameNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="tv_program"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]//following-sibling::dd/a[@class="f_link"])')
@@ -125,7 +126,6 @@ def searchDaumMovieTVSeries(results, media, lang):
             try: year = match.group(1)
             except: year = ''
         items.append({"title":title, "id":id, "year":year})
-
     for item in items:
         year = str(item['year'])
         id = str(item['id'])
@@ -310,11 +310,13 @@ def updateDaumMovieTVSeries(metadata, media):
             seriesNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="series"]/ul/li/a/text())')
             for i in range(1, int(seriesNumber)+1):
                 qs = urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/a/@href')[0].strip())
-                match = Regex('(\d{4}\.\d{1,2})').search(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/span')[0].text.strip())
-                if match:
-                    try: airdate = Datetime.ParseDate(match.group(1), '%Y.%m').date()
-                    except: pass
-                    series_data.append({"airdate":airdate, "q": qs['q'][0].decode('utf8'), "irk": qs['irk'][0]})
+                try:
+                    match = Regex('(\d{4}\.\d{1,2})').search(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/span')[0].text.strip())
+                    if match:
+                        try: airdate = Datetime.ParseDate(match.group(1), '%Y.%m').date()
+                        except: pass
+                        series_data.append({"airdate":airdate, "q": qs['q'][0].decode('utf8'), "irk": qs['irk'][0]})
+                except:pass
             tvshowinfo = sorted(series_data, key=lambda k: k['airdate'], reverse=True)[0]
             title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodes = GetSeason(tvshowinfo)
             metadata.genres.clear()
@@ -358,7 +360,7 @@ def updateDaumMovieTVSeries(metadata, media):
                         except: pass
                 else:
                     season = metadata.seasons[season_num]
-                    title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodeinfos = GetSeason(season_info)        
+                    title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodeinfos = GetSeason(season_info)
                     try:
                         if poster_url:
                             poster = HTTP.Request(poster_url)
