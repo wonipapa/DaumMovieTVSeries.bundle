@@ -1,3 +1,4 @@
+Info.plist 파일을 업데이트 해주세요  
 [다음영화](http://movie.daum.net)에서 영화, TV 드라마, TV 드라마 시리즈 정보를 가져오는 Plex용 Metadata Agent입니다
 
 
