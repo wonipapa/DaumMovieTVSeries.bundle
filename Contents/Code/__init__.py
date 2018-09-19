@@ -68,33 +68,20 @@ def searchDaumMovieTVSeries(results, media, lang):
 # 다음에서 미디어 이름으로 검색후 결과를 보여준다
 # 검색결과의 점수가 95점이면 자동 매치
 # 자동 매치가 안되면 검색 결과를 보여준다.
-
-#검색결과
-#//div[@id='tvpColl']//div[@class='head_cont']//a[@class='tit_info']/text()|//div[@id='tvpColl']//div[@class='head_cont']//a[@class='tit_info']/@href|//div[@id='tvpColl']//div[@class='head_cont']//span[@class='txt_summary']
-
-#시리즈
-#//div[@id='tvpColl']//div[@id='tab_content']//div[@id='tv_series']//ul/li/a[@class='f_link_b']/text()|//div[@id='tvpColl']//div[@id='tab_content']//div[@id='tv_series']//ul/li/a[@class='f_link_b']/@href|//div[@id='tvpColl']//div[@id='tab_content']//div[@id='tv_series']//ul/li/span/text()
-
-
-#동명콘텐트
-#//div[@id='tvpColl']//div[@id='tab_content']//div[@class='coll_etc']//dd/a[@class='f_link']/text()|//div[@id='tvpColl']//div[@id='tab_content']//div[@class='coll_etc']//dd/a[@class='f_link']/@href|//div[@id='tvpColl']//div[@id='tab_content']//div[@class='coll_etc']//dd/span[@class='f_eb']/text()
-#//div[@id='tvpColl']//div[@id='tab_content']//dt[contains(.,'동명 콘텐츠')]/following-sibling::dd/a[@class='f_link']
-#//div[@id='tvpColl']//div[@id='tab_content']//dt[contains(.,'동명 콘텐츠')]/following-sibling::dd/a[@class='f_link']/@href
-#//div[@id='tvpColl']//div[@id='tab_content']//dt[contains(.,'동명 콘텐츠')]/following-sibling::dd/span[@class='f_eb']
     items = []
     media_name = media.show
     media_name = unicodedata.normalize('NFKC', unicode(media_name)).strip()
-
     Log.Debug("search: %s %s" %(media_name, media.year))
 
 #검색결과
     html = HTML.ElementFromURL(url=DAUM_TV_SRCH % (urllib.quote(media_name.encode('utf8'))))
     try:
+        year = ''
         title = html.xpath('//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"][last()]')[0].text.strip()
         #id     = html.xpath('substring-before(substring-after(//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"][last()]/@href, "irk="),"&")').strip()
         id    =   urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"][last()]/@href')[0].strip())['irk'][0].strip()
         year = html.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text.strip()
-        match = Regex('(\d{4})\.\d*\.\d*~').search(year)
+        match = Regex('(\d{4})\.\d*\.\d*~?').search(year)
         if match:
             try: year = match.group(1)
             except: year = ''
@@ -108,6 +95,7 @@ def searchDaumMovieTVSeries(results, media, lang):
         id    = urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/a[@class="f_link_b"]/@href')[0].strip())['irk'][0].strip()
         try:
             year  = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//div[@id="tv_series"]//ul/li[' + str(i) + ']/span')[0].text.strip()
+            Log.Info(year)
             match = Regex('(\d{4})\.').search(year)
             if match:
                 try: year = match.group(1)
@@ -290,6 +278,8 @@ def updateDaumMovieTVSeries(metadata, media):
     
     for season_num in media.seasons:
         season_num_list.append(season_num)
+    if '0' in season_num_list:
+        season_num_list.remove('0')
     season_num_list.sort(key=int)
     #TV show 메타정보가지고 오기
     pageUrl = "http://127.0.0.1:32400/library/metadata/" + media.id + "/tree"
@@ -300,25 +290,29 @@ def updateDaumMovieTVSeries(metadata, media):
         if html:
             #Set TV SHOW
             poster_url = None
+            airdate = None
             series_data= []
-            match = Regex('(\d{4}\.\d{1,2}\.\d{1,2})~(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[3]')[0].text.strip())
-            if match:
-                try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date()
-                except: pass
-                series_data.append({"airdate":airdate, "q":metadatatitle, "irk":metadata.id})
-
+            if html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text is not None:
+                match = Regex('(\d{4}\.\d{1,2}\.\d{1,2})~?(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text.strip())
+                if match:
+                    try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date().strftime('%Y-%m-%d')
+                    except: airdate = None
+            series_data.append({"airdate":airdate, "q":metadatatitle, "irk":metadata.id})
             seriesNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="series"]/ul/li/a/text())')
             for i in range(1, int(seriesNumber)+1):
                 qs = urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/a/@href')[0].strip())
                 try:
                     match = Regex('(\d{4}\.\d{1,2})').search(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/span')[0].text.strip())
                     if match:
-                        try: airdate = Datetime.ParseDate(match.group(1), '%Y.%m').date()
-                        except: pass
-                        series_data.append({"airdate":airdate, "q": qs['q'][0].decode('utf8'), "irk": qs['irk'][0]})
+                        try: airdate = Datetime.ParseDate(match.group(1), '%Y.%m').date().strftime('%Y-%m-%d')
+                        except: airdate = None
                 except:pass
+                series_data.append({"airdate":airdate, "q": qs['q'][0].decode('utf8'), "irk": qs['irk'][0]})
             series_data = sorted(series_data, key=lambda k: k['airdate'])
-            tvshowinfo = series_data[-1]
+            if len(season_num_list) !=1 :
+                tvshowinfo = series_data[0]
+            else :
+                tvshowinfo = series_data[int(season_num_list[0])-1]
             title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodes = GetSeason(tvshowinfo)
             metadata.genres.clear()
             metadata.countries.clear()
@@ -346,9 +340,9 @@ def updateDaumMovieTVSeries(metadata, media):
             # 다음 메타 정보는 부가방송과 같은 특별편에 대한 정보가 없거나 번호를 부여하지 않는 경우가 있다.
             # 이를 위해서 특별편에 대한 정보는 JSON파일로 처리하도록 하였다.
             # 그래서 다음에서 메타데이터를 가져올 때 시즌 0는 제외
-            # 다음 메타의 경우 시즌이 반영안되는 경우가 있다 이때 포스트는 tvshow 포스터 사용
-            if '0' in season_num_list:
-               season_num_list.remove('0')
+            # 다음 메타의 경우 시즌이 반영안되는 경우가 있다 이때 포스터는 tvshow 포스터 사용
+            #if '0' in season_num_list:
+            #   season_num_list.remove('0')
             for season_num in season_num_list:
                 try:
                     season_info = series_data[int(season_num)-1]
@@ -390,7 +384,7 @@ def updateDaumMovieTVSeries(metadata, media):
                         episode_num = episodeinfo['date']
                     #else continue
                     if episode_num:
-                        Log.Info('season_num = %s  episode_num = %s' %(season_num, episode_num))
+                        #Log.Info('season_num = %s  episode_num = %s' %(season_num, episode_num))
                         episode_date, episode_title, episode_summary = GetEpisode(episodeinfo)
                         episode = metadata.seasons[season_num].episodes[episode_num]
                         try:  episode.title = episode_title
@@ -430,10 +424,11 @@ def GetSeason(info):
     title = html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong')[0].text.strip()
     poster_url =  urlparse.parse_qs(urlparse.urlparse(html.xpath('//div[@id="tvpColl"]//div[@class="info_cont"]/div[@class="wrap_thumb"]//img/@src')[0].strip()).query)['fname'][0]
     airdate = None
-    match = Regex('(\d{4}\.\d{1,2}\.\d{1,2})~(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text.strip())
-    if match:
-        try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date()
-        except: pass
+    if html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text is not None:
+        match = Regex('(\d{4}\.\d{1,2}\.\d{1,2})~(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text.strip())
+        if match:
+            try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date()
+            except: airdate = None
     studio = html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[1]')[0].text.strip()
     genres = html.xpath('//div[@id="tvpColl"]//dt[contains(.,"' + u'장르' + '")]//following-sibling::dd')[0].text.strip().split('(')[0].strip()
     summary = String.DecodeHTMLEntities(String.StripTags(html.xpath('//div[@id="tvpColl"]//dt[contains(.,"' + u'소개' + '")]//following-sibling::dd')[0].text).strip())
@@ -493,7 +488,7 @@ def GetEpisode(info):
     except:  airdate = Datetime.Now().date()
     dt = Datetime.Now().date() - airdate
     if(dt.days > 14):
-         HTTP.CacheTime = CACHE_1HOUR * 24 * 30
+         HTTP.CacheTime = CACHE_1HOUR * 24 * 30 * 6
     else:
          HTTP.CacheTime = CACHE_1HOUR * 24
     html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(info['q'].encode('utf8')), info['irk']), sleep=3)
