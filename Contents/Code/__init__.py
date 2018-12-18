@@ -107,6 +107,7 @@ def searchDaumMovieTVSeries(results, media, lang):
     for i in range(1, int(sameNameNumber)+1):
         title = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[' + str(i) + '][@class="f_link"]')[0].text.strip()
         id   = urlparse.parse_qs(html.xpath('//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/a[' + str(i) + '][@class="f_link"]/@href')[0].strip())['irk'][0].strip()
+        year = ''
         try:
             year = html.xpath('//div[@id="tvpColl"]//div[@id="tab_content"]//dt[contains(.,"' + u'동명 콘텐츠' + '")]/following-sibling::dd/span[@class="f_eb"][' + str(i) + ']')[0].text.strip()
             match = Regex('(\d{4})\)').search(year)
@@ -334,7 +335,7 @@ def updateDaumMovieTVSeries(metadata, media):
             try:
                 if poster_url:
                    poster = HTTP.Request(poster_url)
-                   try: metadata.posters[poster_url] = Proxy.Media(poster)
+                   try: metadata.posters[poster_url] = Proxy.Preview(poster)
                    except: pass
             except: pass
             #Set Season
@@ -355,7 +356,7 @@ def updateDaumMovieTVSeries(metadata, media):
                         try:
                             if poster_url:
                                 poster = HTTP.Request(poster_url)
-                                try: season.posters[poster_url] = Proxy.Media(poster)
+                                try: season.posters[poster_url] = Proxy.Preview(poster)
                                 except: pass
                         except: pass
                 else:
@@ -364,7 +365,7 @@ def updateDaumMovieTVSeries(metadata, media):
                     try:
                         if poster_url:
                             poster = HTTP.Request(poster_url)
-                            try: season.posters[poster_url] = Proxy.Media(poster)
+                            try: season.posters[poster_url] = Proxy.Preview(poster)
                             except: pass
                     except: pass
             #Set Actor
@@ -598,7 +599,7 @@ def GetJson(metadata, media):
             poster_url = tvshowdata['poster'].strip()
             if poster_url:
                 poster = HTTP.Request(poster_url)
-                try: metadata.posters[poster_url] = Proxy.Media(poster)
+                try: metadata.posters[poster_url] = Proxy.Preview(poster)
                 except: pass
         except: pass
         try:
@@ -651,7 +652,7 @@ def GetJson(metadata, media):
                     poster_url = seasondata['poster'].strip()
                     if poster_url:
                         poster = HTTP.Request(poster_url)
-                        try: season.posters[poster_url] = Proxy.Media(poster)
+                        try: season.posters[poster_url] = Proxy.Preview(poster)
                         except: pass
                 except: pass
 
