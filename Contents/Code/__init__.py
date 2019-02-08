@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 # Daum Movie TV Series
 
-import os, urllib, unicodedata, json, re, fnmatch, urlparse
+import os, urllib, unicodedata, json, re, fnmatch, urlparse, time
 from collections import OrderedDict
 
-VERSION = '0.20'
+VERSION = '0.21'
 DAUM_MOVIE_SRCH   = "http://movie.daum.net/data/movie/search/v2/movie.json?size=20&start=1&searchText=%s"
+DAUM_MOVIE_SRCH   = "https://suggest-bar.daum.net/suggest?id=movie&cate=movie&multiple=0&mod=json&code=utf_in_out&q=%s&_=%s"
 DAUM_MOVIE_DETAIL = "http://movie.daum.net/moviedb/main?movieId=%s"
 DAUM_MOVIE_CAST   = "http://movie.daum.net/data/movie/movie_info/cast_crew.json?pageNo=1&pageSize=100&movieId=%s"
 DAUM_MOVIE_PHOTO  = "http://movie.daum.net/data/movie/photo/movie/list.json?pageNo=1&pageSize=100&id=%s"
@@ -48,13 +49,16 @@ def Start():
 def searchDaumMovie(results, media, lang):
     media_name = media.name
     media_name = unicodedata.normalize('NFKC', unicode(media_name)).strip()
+    microtime = str(int(time.time()*1000))
     Log.Debug("search: %s %s" %(media_name, media.year))
-    data = JSON.ObjectFromURL(url=DAUM_MOVIE_SRCH % (urllib.quote(media_name.encode('utf8'))))
-    items = data['data']
+    data = JSON.ObjectFromURL(url=DAUM_MOVIE_SRCH % (urllib.quote(media_name.encode('utf8')), microtime))
+    items = data['items']
+
     for item in items:
-        year = str(item['prodYear'])
-        title = String.DecodeHTMLEntities(String.StripTags(item['titleKo'])).strip()
-        id = str(item['movieId'])
+        movieinfo = item.split('|')
+        year = str(movieinfo[3])
+        title = String.DecodeHTMLEntities(String.StripTags(movieinfo[0])).strip()
+        id = str(movieinfo[1])
         if year == media.year:
             score = 95
         elif len(items) == 1:
@@ -392,7 +396,7 @@ def updateDaumMovieTVSeries(metadata, media):
                         if episode.title is None or dt.days < 21:
                             Log.Info('Update season_num = %s  episode_num = %s' %(season_num, episode_num))
                             episode_date, episode_title, episode_summary = GetEpisode(episodeinfo)
-                            try:  episode.title = episode_title
+                            try: episode.title = episode_title
                             except: pass
                             try:  episode.summary = episode_summary.strip()
                             except: pass
@@ -427,7 +431,7 @@ def updateDaumMovieTVSeries(metadata, media):
                             episodeinfo = {"name": str(episode_num), "date":'', "q":metadatatitle+str(episode_num)+u'회', "irk":''}
                             Log.Info('Update season_num = %s  episode_num = %s' %(season_num, episode_num))
                             episode_date, episode_title, episode_summary = GetEpisode(episodeinfo)
-                            try:  episode.title = episode_title
+                            try: episode.title = episode_title
                             except: pass
                             try:  episode.summary = episode_summary.strip()
                             except: pass
@@ -455,7 +459,7 @@ def updateDaumMovieTVSeries(metadata, media):
                                 try: episode_writer.photo = writer['photo']
                                 except: pass
 
-        GetJson(metadata, media) 
+        GetJson(metadata, media)
     except Exception, e:
         Log.Debug(repr(e))
         pass
@@ -550,7 +554,7 @@ def GetEpisode(info):
                    airdate = Datetime.ParseDate(info['date']).date()
                else: airdate = None
     except: airdate = None
-    try: title   = html.xpath('//div[@id="tvpColl"]//p[@class="episode_desc"]/strong/text()')[0].strip()
+    try: title  = html.xpath('//div[@id="tvpColl"]//p[@class="episode_desc"]/strong/text()')[0].strip()
     except:
         if airdate is not None: 
             title = airdate.strftime('%Y-%m-%d')
