@@ -4,14 +4,14 @@
 import os, urllib, unicodedata, json, re, fnmatch, urlparse, time
 from collections import OrderedDict
 
-VERSION = '0.21'
-DAUM_MOVIE_SRCH   = "http://movie.daum.net/data/movie/search/v2/movie.json?size=20&start=1&searchText=%s"
+VERSION = '0.22'
 DAUM_MOVIE_SRCH   = "https://suggest-bar.daum.net/suggest?id=movie&cate=movie&multiple=0&mod=json&code=utf_in_out&q=%s&_=%s"
 DAUM_MOVIE_DETAIL = "http://movie.daum.net/moviedb/main?movieId=%s"
 DAUM_MOVIE_CAST   = "http://movie.daum.net/data/movie/movie_info/cast_crew.json?pageNo=1&pageSize=100&movieId=%s"
 DAUM_MOVIE_PHOTO  = "http://movie.daum.net/data/movie/photo/movie/list.json?pageNo=1&pageSize=100&id=%s"
 
 DAUM_TV_SRCH      = "https://search.daum.net/search?w=tot&q=%s&rtmaxcoll=TVP"
+DAUM_TV_INFO       = "https://search.daum.net/search?w=tot&q=%s&irk=%s&irt=tv-program&DA=TVP"
 DAUM_TV_DETAIL    = "https://search.daum.net/search?w=tv&q=%s&irk=%s&irt=tv-program&DA=TVP"
 
 JSON_MAX_SIZE     = 10 * 1024 * 1024
@@ -296,13 +296,15 @@ def updateDaumMovieTVSeries(metadata, media):
     try:
         html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(metadatatitle.encode('utf8')), metadata.id))
         if html:
+            title = html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong')[0].text.strip()
+            tvinfo = HTML.ElementFromURL(DAUM_TV_INFO % (urllib.quote(title.encode('utf8')), metadata.id))
             #Set TV SHOW
-            if html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text is not None:
-                match = Regex('(\d{4}(\.\d{1,2})?(\.\d{1,2})?)~?(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text.strip())
+            if tvinfo.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text is not None:
+                match = Regex('(\d{4}(\.\d{1,2})?(\.\d{1,2})?)~?(\d{4}\.\d{1,2}\.\d{1,2})?').search(tvinfo.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text.strip())
                 if match:
                     try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date().strftime('%Y-%m-%d')
                     except: airdate = None
-            series_data.append({"airdate":airdate, "q":metadatatitle, "irk":metadata.id})
+            series_data.append({"airdate":airdate, "q":title, "irk":metadata.id})
             seriesNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="series"]/ul/li/a/text())')
             for i in range(1, int(seriesNumber)+1):
                 airdate = None
@@ -322,12 +324,12 @@ def updateDaumMovieTVSeries(metadata, media):
                 for i in series_data:
                     if i['irk'] == metadata.id:
                         tvshowinfo = i
-            title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodeinfos = GetSeason(tvshowinfo)
+            title, poster_url, airdate, studio, genres, summary = GetTvshow(tvshowinfo)
             metadata.genres.clear()
             metadata.countries.clear()
             metadata.roles.clear()
             try: metadata.title = title
-            except: pass
+            except: passs
             try: metadata.studio = studio
             except: pass
             try: metadata.originally_available_at = airdate
@@ -341,7 +343,8 @@ def updateDaumMovieTVSeries(metadata, media):
                    poster = HTTP.Request(poster_url)
                    try: metadata.posters[poster_url] = Proxy.Preview(poster)
                    except: pass
-            except: pass
+            except: pass 
+
             #Set Season
             # 시즌 메타정보 업데이트
             # 시즌 요약정보는 버그인지 업데이트가 되지 않는다.
@@ -365,7 +368,7 @@ def updateDaumMovieTVSeries(metadata, media):
                         except: pass
                 else:
                     season = metadata.seasons[season_num]
-                    title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodeinfos = GetSeason(season_info)
+                    poster_url, directors, producers, writers, actors, episodeinfos = GetSeason(season_info)
                     try:
                         if poster_url:
                             poster = HTTP.Request(poster_url)
@@ -394,42 +397,7 @@ def updateDaumMovieTVSeries(metadata, media):
                         dt = Datetime.Now().date() - airdate
 
                         if episode.title is None or dt.days < 21:
-                            Log.Info('Update season_num = %s  episode_num = %s' %(season_num, episode_num))
-                            episode_date, episode_title, episode_summary = GetEpisode(episodeinfo)
-                            try: episode.title = episode_title
-                            except: pass
-                            try:  episode.summary = episode_summary.strip()
-                            except: pass
-                            if episode_date is not None and episode_num != episode_date.strftime('%Y-%m-%d'):
-                                try: episode.originally_available_at = episode_date
-                                except: pass
-                            episode.rating = None
-                            #감독, 제작, 각본  메타정보 업데이트
-                            for director in directors:
-                                episode_director = episode.directors.new()
-                                try: episode_director.name = director['name']
-                                except: pass
-                                try: episode_director.photo = director['photo']
-                                except: pass
-                            for producer in producers:
-                                episode_producer = episode.producers.new()
-                                try: episode_producer.name = producer['name']
-                                except: pass
-                                try: episode_producer.photo = producer['photo']
-                                except: pass
-                            for writer in writers:
-                                episode_writer = episode.writers.new()
-                                try: episode_writer.name = writer['name']
-                                except: pass
-                                try: episode_writer.photo = writer['photo']
-                                except: pass
-                if len(episodeinfos) :
-                #회차정보는 검색하면 존재하나 회차정보에 없을 경우
-                    for episode_num in media.seasons[season_num].episodes:
-                        episode = metadata.seasons[season_num].episodes[episode_num]
-                        if episode.title is None:
-                            episodeinfo = {"name": str(episode_num), "date":'', "q":metadatatitle+str(episode_num)+u'회', "irk":''}
-                            Log.Info('Update season_num = %s  episode_num = %s' %(season_num, episode_num))
+                            Log.Info('Update season_num = %s  episode_num = %s by method 1' %(season_num, episode_num))
                             episode_date, episode_title, episode_summary = GetEpisode(episodeinfo)
                             try: episode.title = episode_title
                             except: pass
@@ -459,37 +427,81 @@ def updateDaumMovieTVSeries(metadata, media):
                                 try: episode_writer.photo = writer['photo']
                                 except: pass
 
-        GetJson(metadata, media)
+                if len(episodeinfos) :                                
+                #회차정보는 검색하면 존재하나 회차정보에 없을 경우
+                    for episode_num in media.seasons[season_num].episodes:
+                        episode = metadata.seasons[season_num].episodes[episode_num]
+                        if episode.title is None:
+                            if episode_num.isdigit(): q = metadatatitle+str(episode_num)+u'회'
+                            else : q = metadatatitle+str(episode_num)
+                            episodeinfo = {"name": str(episode_num), "date":'', "q": q, "irk":''}
+                            Log.Info('Update season_num = %s  episode_num = %s by method 2' %(season_num, episode_num))
+                            episode_date, episode_title, episode_summary = GetEpisode(episodeinfo)
+                            try: episode.title = episode_title
+                            except: pass
+                            try:  episode.summary = episode_summary.strip()
+                            except: pass
+                            if episode_date is not None and episode_num != episode_date.strftime('%Y-%m-%d'):
+                                try: episode.originally_available_at = episode_date
+                                except: pass
+                            episode.rating = None
+                            #감독, 제작, 각본  메타정보 업데이트
+                            for director in directors:
+                                episode_director = episode.directors.new()
+                                try: episode_director.name = director['name']
+                                except: pass
+                                try: episode_director.photo = director['photo']
+                                except: pass
+                            for producer in producers:
+                                episode_producer = episode.producers.new()
+                                try: episode_producer.name = producer['name']
+                                except: pass
+                                try: episode_producer.photo = producer['photo']
+                                except: pass
+                            for writer in writers:
+                                episode_writer = episode.writers.new()
+                                try: episode_writer.name = writer['name']
+                                except: pass
+                                try: episode_writer.photo = writer['photo']
+                                except: pass
+
+        GetJson(metadata, media)            
     except Exception, e:
         Log.Debug(repr(e))
         pass
- 
-def GetSeason(info):
+
+def GetTvshow(info):
     title = ''
     poster_url = None
     airdate = None
     studio = ''
     genres = ''
     summary = ''
+    html = HTML.ElementFromURL(DAUM_TV_INFO % (urllib.quote(info['q'].encode('utf8')), info['irk']))
+    title = html.xpath('//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"][last()]')[0].text.strip()
+    poster_url =  urlparse.parse_qs(urlparse.urlparse(html.xpath('//div[@id="tv_program"]/div[@class="info_cont"]/div[@class="wrap_thumb"]/a/img/@src')[0].strip()).query)['fname'][0]
+    if html.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text is not None:
+        match = Regex('(\d{4}(\.\d{1,2})?(\.\d{1,2})?)~?(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text.strip())
+        if match:
+            try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date().strftime('%Y-%m-%d')
+            except: airdate = None
+    try: studio = html.xpath('//div[@class="head_cont"]/div[@class="summary_info"]/a')[0].text.strip()
+    except: pass
+    try: genres = html.xpath('//div[@class="head_cont"]/div[@class="summary_info"]/span[@class="txt_summary"][1]')[0].text.strip().split('(')[0].strip()
+    except: pass
+    try: summary = html.xpath('//div[@id="tv_program"]/div[@class="info_cont"]/dl[@class="dl_comm dl_row"][1]/dd[@class="cont"]')[0].text.strip()
+    except: pass
+    return title, poster_url, airdate, studio, genres, summary
+ 
+def GetSeason(info):
+    poster_url = None
     directors = []
     producers = []
     writers = []
     actors = []
     episodeinfos = []
     html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(info['q'].encode('utf8')), info['irk']))
-    title = html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong')[0].text.strip()
     poster_url =  urlparse.parse_qs(urlparse.urlparse(html.xpath('//div[@id="tvpColl"]//div[@class="info_cont"]/div[@class="wrap_thumb"]//img/@src')[0].strip()).query)['fname'][0]
-    if html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text is not None:
-        match = Regex('(\d{4}\.\d{1,2}\.\d{1,2})~?(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[last()]')[0].text.strip())
-        if match:
-            try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date()
-            except: airdate = None
-    try: studio = html.xpath('//div[@id="tvpColl"]//div[@class="txt_summary"]/span[1]')[0].text.strip()
-    except: pass
-    try: genres = html.xpath('//div[@id="tvpColl"]//dt[contains(.,"' + u'장르' + '")]//following-sibling::dd')[0].text.strip().split('(')[0].strip()
-    except: pass
-    try: summary = String.DecodeHTMLEntities(String.StripTags(html.xpath('//div[@id="tvpColl"]//dt[contains(.,"' + u'소개' + '")]//following-sibling::dd')[0].text).strip())
-    except: pass
     for crewinfo in html.xpath('//div[@id="tvpColl"]//div[@class="wrap_col lst"]/ul/li[@data-index]'):
         try:
             if crewinfo.xpath('./span[@class="txt_name"]/a'):
@@ -533,7 +545,7 @@ def GetSeason(info):
         try:episode_name = episodeinfo.xpath('./a/span[@class="txt_episode"]')[0].text.strip().replace(u'회','').strip()
         except:episode_name = ''
         episodeinfos.append({"name": episode_name, "date":episode_date, "q":episode_qs['q'][0], "irk":episode_qs['irk'][0]})
-    return title, poster_url, airdate, studio, genres, summary, directors, producers, writers, actors, episodeinfos
+    return poster_url, directors, producers, writers, actors, episodeinfos
 
 def GetEpisode(info):
     title = None
