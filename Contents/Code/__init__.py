@@ -283,7 +283,8 @@ def updateDaumMovieTVSeries(metadata, media):
     series_data= []
     airdate = None
     tvshowinfo = None
-
+    actors = []
+    episodeinfos = []
     for season_num in media.seasons:
         season_num_list.append(season_num)
     if '0' in season_num_list:
