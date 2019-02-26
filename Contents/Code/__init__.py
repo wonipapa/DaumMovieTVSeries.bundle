@@ -4,7 +4,7 @@
 import os, urllib, unicodedata, json, re, fnmatch, urlparse, time
 from collections import OrderedDict
 
-VERSION = '0.23'
+VERSION = '0.24'
 DAUM_MOVIE_SRCH   = "https://suggest-bar.daum.net/suggest?id=movie&cate=movie&multiple=0&mod=json&code=utf_in_out&q=%s&_=%s"
 DAUM_MOVIE_DETAIL = "http://movie.daum.net/moviedb/main?movieId=%s"
 DAUM_MOVIE_CAST   = "http://movie.daum.net/data/movie/movie_info/cast_crew.json?pageNo=1&pageSize=100&movieId=%s"
@@ -292,14 +292,19 @@ def updateDaumMovieTVSeries(metadata, media):
     if '0' in season_num_list:
         season_num_list.remove('0')
     season_num_list.sort(key=int)
-    microtime = str(int(time.time()*1000))
-    data = JSON.ObjectFromURL(url=DAUM_TV_JSON % (urllib.quote(media.title.encode('utf8')), microtime))
-    items = data['items']
-    for item in items:
-        title, id, poster, year, rating = item.split('|')
-        if id == metadata.id :
-            html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(title.encode('utf8')), metadata.id))
-    
+
+    #TV show 메타정보가지고 오기
+    try:
+        microtime = str(int(time.time()*1000))
+        search_title = re.sub('[!\-,#@$%^&*() \\/:;?<>|\.\[\]\{\}_=+`~]+', '', media.title)
+        Log.Info(search_title)
+        data = JSON.ObjectFromURL(url=DAUM_TV_JSON % (urllib.quote(search_title.encode('utf8')), microtime))
+        items = data['items']
+        for item in items:
+            title, id, poster, year, rating = item.split('|')
+            if id == metadata.id :
+                html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(title.encode('utf8')), metadata.id))
+    except: pass
     if html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong'):
         title = html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong')[0].text.strip()
         tvinfo = HTML.ElementFromURL(DAUM_TV_INFO % (urllib.quote(title.encode('utf8')), metadata.id))
@@ -335,14 +340,7 @@ def updateDaumMovieTVSeries(metadata, media):
             for i in series_data:
                 if i['irk'] == metadata.id:
                     tvshowinfo = i
-    #TV show 메타정보가지고 오기
-    pageUrl = "http://127.0.0.1:32400/library/metadata/" + media.id + "/tree"
-    metadatatitlejson = JSON.ObjectFromURL(pageUrl)
-    metadatatitle = metadatatitlejson['MediaContainer']['MetadataItem'][0]['title']
     try:
-        #html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(metadatatitle.encode('utf8')), metadata.id))
-        
-        #if html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong'):
         if series_data:
             if len(season_num_list) !=1 :
                 tvshowinfo = series_data[0]
