@@ -423,10 +423,10 @@ def updateDaumMovieTVSeries(metadata, media):
             #Set Episode
             # 에피소드 타이틀이 없거나(신규 또는 개별 메타데이터 갱신) 방영일이 3주 이내인 경우
             # 에피소드 데이터를 업데이트
-            #다음에 무리를 주지 않기 위해서 100개까지만 가져오게 설정
+            #다음에 무리를 주지 않기 위해서 30개까지만 가져오게 설정
             #업데이트 되지 않은 정보는 새로 추가되거나 메다데이터 새로 고침하면 추가됨
                 for index, episodeinfo in enumerate(episodeinfos):
-                    if index >= 100: break;
+                    if index >= 30: break;
                     episode_num = ''
                     if  episodeinfo['name'] and int(episodeinfo['name']) in media.seasons[season_num].episodes:
                         episode_num = int(episodeinfo['name'])
@@ -471,9 +471,9 @@ def updateDaumMovieTVSeries(metadata, media):
 
                 if len(episodeinfos) :                                
                 #회차정보는 검색하면 존재하나 회차정보에 없을 경우
-                #다음에 무리를 주지 않기 위해서 100개까지만 가져오게 설정
+                #다음에 무리를 주지 않기 위해서 30개까지만 가져오게 설정
                     for index, episode_num in enumerate(media.seasons[season_num].episodes):
-                        if index >= 100 : break
+                        if index >= 30 : break
                         episode = metadata.seasons[season_num].episodes[episode_num]
                         if episode.title is None:
                             if episode_num.isdigit(): q = media.title+str(episode_num)+u'회'
