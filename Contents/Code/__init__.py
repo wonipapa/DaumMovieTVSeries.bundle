@@ -4,7 +4,7 @@
 import os, urllib, unicodedata, json, re, fnmatch, urlparse, time
 from collections import OrderedDict
 
-VERSION = '0.25'
+VERSION = '0.26'
 DAUM_MOVIE_SRCH   = "https://suggest-bar.daum.net/suggest?id=movie&cate=movie&multiple=0&mod=json&code=utf_in_out&q=%s&_=%s"
 DAUM_MOVIE_DETAIL = "http://movie.daum.net/moviedb/main?movieId=%s"
 DAUM_MOVIE_CAST   = "http://movie.daum.net/data/movie/movie_info/cast_crew.json?pageNo=1&pageSize=100&movieId=%s"
@@ -425,8 +425,8 @@ def updateDaumMovieTVSeries(metadata, media):
             # 에피소드 데이터를 업데이트
             #다음에 무리를 주지 않기 위해서 30개까지만 가져오게 설정
             #업데이트 되지 않은 정보는 새로 추가되거나 메다데이터 새로 고침하면 추가됨
-                for index, episodeinfo in enumerate(episodeinfos):
-                    if index >= 30: break;
+                idx = 0
+                for episodeinfo in episodeinfos:
                     episode_num = ''
                     if  episodeinfo['name'] and int(episodeinfo['name']) in media.seasons[season_num].episodes:
                         episode_num = int(episodeinfo['name'])
@@ -468,12 +468,14 @@ def updateDaumMovieTVSeries(metadata, media):
                                 except: pass
                                 try: episode_writer.photo = writer['photo']
                                 except: pass
+                            idx +=1
+                        if idx >= 30: break
 
                 if len(episodeinfos) :                                
                 #회차정보는 검색하면 존재하나 회차정보에 없을 경우
                 #다음에 무리를 주지 않기 위해서 30개까지만 가져오게 설정
-                    for index, episode_num in enumerate(media.seasons[season_num].episodes):
-                        if index >= 30 : break
+                    idx = 0
+                    for episode_num in media.seasons[season_num].episodes:
                         episode = metadata.seasons[season_num].episodes[episode_num]
                         if episode.title is None:
                             if episode_num.isdigit(): q = media.title+str(episode_num)+u'회'
@@ -507,7 +509,9 @@ def updateDaumMovieTVSeries(metadata, media):
                                 try: episode_writer.name = writer['name']
                                 except: pass
                                 try: episode_writer.photo = writer['photo']
-                                except: pass         
+                                except: pass
+                            idx += 1
+                        if idx >= 30: break
     except Exception, e:
         Log.Debug(repr(e))
         pass
