@@ -4,7 +4,7 @@
 import os, urllib, unicodedata, json, re, fnmatch, urlparse, time
 from collections import OrderedDict
 
-VERSION = '0.26'
+VERSION = '0.27'
 DAUM_MOVIE_SRCH   = "https://suggest-bar.daum.net/suggest?id=movie&cate=movie&multiple=0&mod=json&code=utf_in_out&q=%s&_=%s"
 DAUM_MOVIE_DETAIL = "http://movie.daum.net/moviedb/main?movieId=%s"
 DAUM_MOVIE_CAST   = "http://movie.daum.net/data/movie/movie_info/cast_crew.json?pageNo=1&pageSize=100&movieId=%s"
@@ -39,7 +39,14 @@ DAUM_CR_TO_MPAA_CR = {
         'MPAA': 'NC-17'
     }
 }
-
+html_escape_table = {
+    "&": "&amp;",
+    '"': "&quot;",
+    "'": "&apos;",
+    ">": "&gt;",
+    "<": "&lt;",
+}
+ 
 def Start():
     HTTP.CacheTime = CACHE_1HOUR * 12
     HTTP.Headers['Accept'] = 'text/html, application/json'
@@ -83,8 +90,8 @@ def searchDaumMovieTVSeries(results, media, lang):
     html = HTML.ElementFromURL(url=DAUM_TV_SRCH % (urllib.quote(media_name.encode('utf8'))))
     try:
         year = ''
-        title = html.xpath('//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"][last()]')[0].text.strip()
-        id    =   urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"][last()]/@href')[0].strip())['irk'][0].strip()
+        title = urllib.unquote(Regex('q=(.*?)&').search(html.xpath('//a[@class="tit_info"]/@href')[-1]).group(1)).strip()
+        id = urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"][last()]/@href')[0].strip())['irk'][0].strip()
         year = html.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text
         if year is not None:
             match = Regex('(\d{4})\.\d*\.\d*~?').search(year.strip())
@@ -314,21 +321,16 @@ def updateDaumMovieTVSeries(metadata, media):
         season_num_list.remove('0')
     season_num_list.sort(key=int)
 
+    #JSON정보가 있을 시 처리
+    tvinfofile = GetJson(metadata, media)
+    tvinfodata = json.loads(Core.storage.load(tvinfofile))
     #TV show 메타정보가지고 오기
     try:
-        microtime = str(int(time.time()*1000))
-        search_title = re.sub('[!\-,#@$%^&* \\/:;?<>|\.\[\]\{\}_=+`~]+', '', media.title.encode('utf-8'))
-        data = JSON.ObjectFromURL(url=DAUM_TV_JSON % (urllib.quote(search_title.encode('utf8')), microtime))
-        items = data['items']
-        for item in items:
-            title, id, poster, year, rating = item.split('|')
-            if id == metadata.id :
-                html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(title.encode('utf8')), metadata.id))
-        if not html:
-             html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(media.title.encode('utf8')), metadata.id))
+        html = HTML.ElementFromURL(DAUM_TV_DETAIL % (urllib.quote(tvinfodata['search_title'].encode('utf8')), tvinfodata['search_id']))
     except: pass
+
     if html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong'):
-        title = html.xpath('//div[@id="tvpColl"]//div[@class="tit_program"]/strong')[0].text.strip()
+        title = urllib.unquote(Regex('q=(.*?)&').search(html.xpath('//div[@id="tv_program"]/div[@class="info_cont"]/div[@class="wrap_thumb"]/a/@href')[-1]).group(1)).strip()
         tvinfo = HTML.ElementFromURL(DAUM_TV_INFO % (urllib.quote(title.encode('utf8')), metadata.id))
         #Set TV SHOW
         if tvinfo.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text is not None:
@@ -337,18 +339,22 @@ def updateDaumMovieTVSeries(metadata, media):
                 try: airdate = Datetime.ParseDate(match.group(1), '%Y%m%d').date().strftime('%Y-%m-%d')
                 except: airdate = None
         series_data.append({"airdate":airdate, "q":title, "irk":metadata.id})
-        seriesNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="series"]/ul/li/a/text())')
-        for i in range(1, int(seriesNumber)+1):
-            airdate = None
-            qs = urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/a/@href')[0].strip())
-            try:
-                match = Regex('(\d{4}(\.?\d{1,2})?)').search(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/span')[0].text.strip())
-                if match:
-                    try: airdate = Datetime.ParseDate(match.group(1), '%Y.%m').date().strftime('%Y-%m-%d')
-                    except: airdate = None
-            except:pass
-            series_data.append({"airdate":airdate, "q": qs['q'][0].decode('utf8'), "irk": qs['irk'][0]})
-        series_data = sorted(series_data, key=lambda k: (k['airdate'] is None, k['airdate']))
+        if tvinfodata['use_series'] == 'Y':
+            seriesNumber = html.xpath('count(//div[@id="tvpColl"]//div[@id="series"]/ul/li/a/text())')
+            for i in range(1, int(seriesNumber)+1):
+                airdate = None
+                qs = urlparse.parse_qs(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/a/@href')[0].strip())
+                try:
+                    match = Regex('(\d{4}(\.?\d{1,2})?)').search(html.xpath('//div[@id="tvpColl"]//div[@id="series"]/ul/li[' + str(i) + ']/span')[0].text.strip())
+                    if match:
+                        try: airdate = Datetime.ParseDate(match.group(1), '%Y.%m').date().strftime('%Y-%m-%d')
+                        except: airdate = None
+                except:pass
+                series_data.append({"airdate":airdate, "q": qs['q'][0].decode('utf8'), "irk": qs['irk'][0]})
+        else :
+            seriesNumber = 0
+        series_data = sorted(series_data, key=lambda k: (k['airdate'] is None, k['airdate'], k['q']))
+
     try:
         if series_data:
             if len(season_num_list) !=1 :
@@ -358,12 +364,13 @@ def updateDaumMovieTVSeries(metadata, media):
                 for i in series_data:
                     if i['irk'] == metadata.id:
                         tvshowinfo = i
+
             title, poster_url, airdate, studio, genres, summary, year = GetTvshow(tvshowinfo)
             metadata.genres.clear()
             metadata.countries.clear()
             metadata.roles.clear()
             try: 
-                metadata.title = title
+                metadata.title = tvinfodata['user_title'] if tvinfodata['user_title'] else title
                 metadata.title_sort = unicodedata.normalize('NFKD', metadata.title)
             except: passs
             try: metadata.studio = studio
@@ -389,7 +396,6 @@ def updateDaumMovieTVSeries(metadata, media):
             # 포스터 정보만 업데이트
             # 특별편에 대한 정보는 JSON파일로 처리하도록 하였다.
             # 시즌이 반영안되는 경우 포스터는 tvshow 포스터 사용
-
             for season_num in season_num_list:
                 if int(seriesNumber)+1 !=1 :
                     try: season_info = series_data[int(season_num)-1]
@@ -423,8 +429,8 @@ def updateDaumMovieTVSeries(metadata, media):
             #Set Episode
             # 에피소드 타이틀이 없거나(신규 또는 개별 메타데이터 갱신) 방영일이 3주 이내인 경우
             # 에피소드 데이터를 업데이트
-            #다음에 무리를 주지 않기 위해서 30개까지만 가져오게 설정
-            #업데이트 되지 않은 정보는 새로 추가되거나 메다데이터 새로 고침하면 추가됨
+            # 다음에 무리를 주지 않기 위해서 30개까지만 가져오게 설정
+            # 업데이트 되지 않은 정보는 새로 추가되거나 메다데이터 새로 고침하면 추가됨
                 idx = 0
                 for episodeinfo in episodeinfos:
                     episode_num = ''
@@ -526,9 +532,6 @@ def GetTvshow(info):
     summary = ''
     html = HTML.ElementFromURL(DAUM_TV_INFO % (urllib.quote(info['q'].encode('utf8')), info['irk']))
     title = html.xpath('//div[@id="tvpColl"]//div[@class="head_cont"]//a[@class="tit_info"][last()]')[0].text.strip()
-    #match = re.search('(.*) 시즌(\d{1,2})', title.encode('utf-8'))
-    #if match:
-    #    title = match.group(1)
     poster_url =  urlparse.parse_qs(urlparse.urlparse(html.xpath('//div[@id="tv_program"]/div[@class="info_cont"]/div[@class="wrap_thumb"]/a/img/@src')[0].strip()).query)['fname'][0]
     if html.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text is not None:
         match = Regex('(\d{4}(\.\d{1,2})?(\.\d{1,2})?)~?(\d{4}\.\d{1,2}\.\d{1,2})?').search(html.xpath('//div[@class="head_cont"]//span[@class="txt_summary"][last()]')[0].text.strip())
@@ -636,7 +639,7 @@ def GetJson(metadata, media):
 # Root 폴더명 연도.json(2008, 2009, 2010 등 가능)
 # 시즌별 JSON 파일이 있으면 메타정보 업데이트
 # 시즌 JSON 파일은 각각의 시즌 폴더에 위치
-# 파일명은
+# 파일명은 다음과 같다
 # Root 폴더명 시즌 1.json(시즌 01, 시즌01, 시즌001 등 가능)
 # Root 폴더명 season 1.json(season1, Season 01 등 가능)
     root, current_folder = GetCurrentFolder(PLEX_LIBRARY, media.id)
@@ -665,6 +668,26 @@ def GetJson(metadata, media):
         if match:
             season_num = match.group(2)
             SetJsonSeason(jsonfile, metadata, season_num)
+
+#검색과 시리즈 편이를 위해서 tvinfo.json 파일 생성
+#user_title = 기본값은 ''
+#시리즈 같은 경우 첫번째 시즌의 제목이 들어가게 되어 있으므로
+#사용자가 고치고 싶을 때 원하는 이름을 넣는다
+#use_series = 'Y', 'N' 시리즈라도 사용안할 경우 선택 기본값은 Y
+#TV는 사랑을 싣고와 같은 경우 시리즈상 2번째 시즌이지만
+#첫번째 시즌으로 취급하고 싶을 때 사용
+    tvinfofile = 'tvinfo.json'
+    tvinfofile = os.path.join(root, current_folder, tvinfofile)
+    tvinfofile = unicodedata.normalize('NFKC', unicode(tvinfofile)).strip()
+    tvinfo =json.dumps({'search_id': metadata.id, 'search_title': media.title, 'user_title': '', 'use_series': 'Y'}, sort_keys=True, ensure_ascii=False)
+    if os.path.exists(tvinfofile):
+        tvinfodata = json.loads(Core.storage.load(tvinfofile))
+        if tvinfodata['search_id'] != metadata.id:
+            tvinfo =json.dumps({'search_id': metadata.id, 'search_title': media.title, 'user_title': tvinfodata['user_title'], 'use_series': tvinfodata['use_series']}, sort_keys=True, ensure_ascii=False)
+            Core.storage.save(tvinfofile, tvinfo)
+    else:
+        Core.storage.save(tvinfofile, tvinfo)
+    return tvinfofile
 
 def SetJsonTvshow(tvshowfile, metadata):
     if os.path.exists(tvshowfile):
@@ -779,7 +802,6 @@ def SetJsonEpisode(seasondata, metadata, season_num):
                     try: episode_writer.photo = writer['photo']
                     except: pass
 
-
 def GetPlexLibrary():
     PLEX_LIBRARY = []
     PLEX_LIBRARY_URL = 'http://127.0.0.1:32400/library/sections'
@@ -800,6 +822,9 @@ def GetCurrentFolder(PLEX_LIBRARY, id):
              current_folder = path.split(os.sep)[0]
              break;
     return root, current_folder;
+
+#def html_escape(text):
+#    retrun "".join(html_escape_table.get(c,c) for c in text)
 
 ####################################################################################################
 class DaumMovieAgent(Agent.Movies):
@@ -824,5 +849,4 @@ class DaumMovieTVSeriesAgent(Agent.TV_Shows):
         return searchDaumMovieTVSeries(results, media, lang)
 
     def update(self, metadata, media, lang):
-        GetJson(metadata, media)  
         updateDaumMovieTVSeries(metadata, media)
