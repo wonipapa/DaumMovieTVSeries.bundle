@@ -4,7 +4,7 @@
 import os, urllib, unicodedata, json, re, fnmatch, urlparse, time
 from collections import OrderedDict
 
-VERSION = '0.28'
+VERSION = '0.29'
 #DAUM_MOVIE_SRCH   = "https://suggest-bar.daum.net/suggest?id=movie&cate=movie&multiple=0&mod=json&code=utf_in_out&q=%s&_=%s"
 #DAUM_MOVIE_SRCH   = "https://suggest-bar.daum.net/suggest?id=movie_v2&cate=movie|person&multiple=1&mode=json&q=%s&_=%s"
 DAUM_MOVIE_SRCH   = "https://search.daum.net/search?w=tot&q=%s"
